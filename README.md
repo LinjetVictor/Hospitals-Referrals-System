@@ -1,6 +1,6 @@
 # Hospital Referrals Management and Tracking System
 
-A multi-tenant hospital referrals management and tracking system built with Spring Boot, MySQL, Thymeleaf, Spring Security, and Flyway.
+A multi-tenant hospital referrals management and tracking system built with Spring Boot, PostgreSQL, Thymeleaf, Spring Security, and Flyway.
 
 The system helps hospitals create, receive, route, track, and close patient referrals across facilities. It supports role-based access, tenant isolation, referral journey tracking, attachments, notifications, reporting, and deployment through Docker or Render.
 
@@ -22,7 +22,7 @@ The system helps hospitals create, receive, route, track, and close patient refe
 | Language | Java 21 |
 | UI | Thymeleaf, HTML, CSS |
 | Security | Spring Security |
-| Database | MySQL |
+| Database | PostgreSQL |
 | ORM | Spring Data JPA / Hibernate |
 | Migrations | Flyway |
 | Build Tool | Maven |
@@ -190,22 +190,24 @@ src/main/resources
 
 - Java 21
 - Maven
-- MySQL 8 or compatible MySQL database
+- PostgreSQL 17 or compatible PostgreSQL database
 
 ### Database Setup
 
-Create a MySQL database:
+Create a PostgreSQL database:
 
 ```sql
 CREATE DATABASE hospital_referrals;
+CREATE USER referrals WITH PASSWORD 'referrals';
+GRANT ALL PRIVILEGES ON DATABASE hospital_referrals TO referrals;
 ```
 
 Set database environment variables if your database credentials differ from the defaults:
 
 ```bash
-SPRING_DATASOURCE_URL=jdbc:mysql://localhost:3306/hospital_referrals?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-SPRING_DATASOURCE_USERNAME=root
-SPRING_DATASOURCE_PASSWORD=root
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/hospital_referrals
+SPRING_DATASOURCE_USERNAME=referrals
+SPRING_DATASOURCE_PASSWORD=referrals
 ```
 
 Run the application:
@@ -227,14 +229,14 @@ Flyway applies all database migrations automatically at startup.
 | Variable | Purpose | Default |
 | --- | --- | --- |
 | `SERVER_PORT` | Application port | `8080` |
-| `SPRING_DATASOURCE_URL` | Full JDBC URL | Built from local MySQL defaults |
-| `SPRING_DATASOURCE_USERNAME` | Database username | `root` |
-| `SPRING_DATASOURCE_PASSWORD` | Database password | `root` |
+| `SPRING_DATASOURCE_URL` | Full JDBC URL | Built from local PostgreSQL defaults |
+| `SPRING_DATASOURCE_USERNAME` | Database username | `referrals` |
+| `SPRING_DATASOURCE_PASSWORD` | Database password | `referrals` |
 | `DB_HOST` | Database host used when full JDBC URL is not set | `localhost` |
-| `DB_PORT` | Database port | `3306` |
+| `DB_PORT` | Database port | `5432` |
 | `DB_NAME` | Database name | `hospital_referrals` |
-| `DB_USERNAME` | Alternative database username | `root` |
-| `DB_PASSWORD` | Alternative database password | `root` |
+| `DB_USERNAME` | Alternative database username | `referrals` |
+| `DB_PASSWORD` | Alternative database password | `referrals` |
 | `APP_BOOTSTRAP_SUPER_ADMIN_EMAIL` | Bootstrap super admin email | `superadmin@referrals.local` |
 | `APP_BOOTSTRAP_SUPER_ADMIN_PASSWORD` | Bootstrap super admin password | `ChangeMe123!` |
 | `APP_STORAGE_ATTACHMENTS_DIR` | Referral attachment storage path | `storage/referral-attachments` |

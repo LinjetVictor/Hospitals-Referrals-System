@@ -14,7 +14,6 @@ import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 
 @Service
 @Transactional
@@ -50,7 +49,7 @@ public class SuperAdminUserService {
 
     @Transactional(readOnly = true)
     public List<Hospital> findHospitalsForSelection() {
-        return hospitalRepository.findAllByOrderByNameAsc();
+        return hospitalRepository.findAllByEnabledTrueOrderByNameAsc();
     }
 
     @Transactional(readOnly = true)
@@ -69,13 +68,11 @@ public class SuperAdminUserService {
         return form;
     }
 
-    public void createHospitalAdmin(HospitalAdminForm form) {
-        validateUser(form, null, true);
-        AppUser user = new AppUser();
-        apply(form, user, true);
-        user.setRoles(Set.of(RoleName.HOSPITAL_ADMIN));
-        userRepository.save(user);
-    }
+    // Hospital admin creation is intentionally not exposed here. Only the
+    // hospital admin created during hospital self-registration (see
+    // Hospital#getRegistrationAdminId / HospitalRegistrationService) is
+    // permitted to add further hospital admins for their hospital, via
+    // HospitalAdminStaffService in the hospital admin workspace.
 
     public void updateHospitalAdmin(Long userId, HospitalAdminForm form) {
         validateUser(form, userId, false);
@@ -104,8 +101,11 @@ public class SuperAdminUserService {
         if (creating && !StringUtils.hasText(form.getPassword())) {
             throw new IllegalArgumentException("A password is required when creating a hospital admin.");
         }
-        hospitalRepository.findById(form.getHospitalId())
+        Hospital hospital = hospitalRepository.findById(form.getHospitalId())
             .orElseThrow(() -> new IllegalArgumentException("Selected hospital does not exist."));
+        if (form.isEnabled() && !hospital.isEnabled()) {
+            throw new IllegalArgumentException("A hospital administrator can only be enabled after the hospital has been approved.");
+        }
     }
 
     private void apply(HospitalAdminForm form, AppUser user, boolean creating) {

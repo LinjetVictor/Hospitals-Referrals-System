@@ -16,8 +16,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.util.List;
-
 @Controller
 @RequestMapping("/hospital-admin/users")
 public class HospitalAdminUserController {
@@ -36,7 +34,8 @@ public class HospitalAdminUserController {
                        @RequestParam(required = false) RoleName role,
                        Model model) {
         model.addAttribute("users", staffService.findManagedUsersForCurrentTenant(q, role));
-        model.addAttribute("roles", List.of(RoleName.REFERRAL_OFFICER, RoleName.DOCTOR, RoleName.VIEWER));
+        model.addAttribute("roles", staffService.findAssignableRolesForCurrentUser());
+        model.addAttribute("isRegistrationAdmin", staffService.isCurrentUserRegistrationAdmin());
         model.addAttribute("q", q);
         model.addAttribute("selectedRole", role);
         return "hospitaladmin/users/list";
@@ -97,14 +96,18 @@ public class HospitalAdminUserController {
 
     @PostMapping("/{userId}/delete")
     public String delete(@PathVariable Long userId, RedirectAttributes redirectAttributes) {
-        staffService.delete(userId);
-        redirectAttributes.addFlashAttribute("message", "Hospital user deleted successfully.");
+        try {
+            staffService.delete(userId);
+            redirectAttributes.addFlashAttribute("message", "Hospital user deleted successfully.");
+        } catch (IllegalArgumentException ex) {
+            redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
+        }
         return "redirect:/hospital-admin/users";
     }
 
     private void populateForm(Model model, HospitalUserForm form, String title, String action) {
         model.addAttribute("hospitalUserForm", form);
-        model.addAttribute("roles", List.of(RoleName.REFERRAL_OFFICER, RoleName.DOCTOR, RoleName.VIEWER));
+        model.addAttribute("roles", staffService.findAssignableRolesForCurrentUser());
         model.addAttribute("departments", directoryService.findEnabledDepartmentsForCurrentTenant());
         model.addAttribute("doctors", directoryService.findEnabledDoctorsForCurrentTenant());
         model.addAttribute("pageTitle", title);

@@ -3,6 +3,8 @@ package com.example.referrals.hospital;
 import com.example.referrals.common.model.AuditableEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 
 @Entity
@@ -27,6 +29,13 @@ public class Hospital extends AuditableEntity {
 
     @Column(nullable = false)
     private boolean enabled = true;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private HospitalRegistrationStatus registrationStatus = HospitalRegistrationStatus.APPROVED;
+
+    @Column(name = "registration_admin_id")
+    private Long registrationAdminId;
 
     public String getName() {
         return name;
@@ -74,5 +83,21 @@ public class Hospital extends AuditableEntity {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    public HospitalRegistrationStatus getRegistrationStatus() {
+        return registrationStatus;
+    }
+
+    public void setRegistrationStatus(HospitalRegistrationStatus registrationStatus) {
+        this.registrationStatus = registrationStatus;
+    }
+
+    public Long getRegistrationAdminId() {
+        return registrationAdminId;
+    }
+
+    public void setRegistrationAdminId(Long registrationAdminId) {
+        this.registrationAdminId = registrationAdminId;
     }
 }

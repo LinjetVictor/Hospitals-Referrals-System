@@ -8,6 +8,7 @@ import com.example.referrals.hospitaladmin.form.ReferralNoteForm;
 import com.example.referrals.hospitaladmin.form.ReferralStatusForm;
 import com.example.referrals.hospitaladmin.service.HospitalAdminReferralService;
 import com.example.referrals.referral.ReferralAttachmentService;
+import com.example.referrals.referral.ReferralAttachmentType;
 import com.example.referrals.referral.Referral;
 import com.example.referrals.referral.ReferralClosureOutcome;
 import com.example.referrals.referral.ReferralEventType;
@@ -78,6 +79,9 @@ public class HospitalAdminReferralController {
     @PostMapping
     public String create(@Valid @ModelAttribute("referralForm") ReferralForm referralForm,
                          BindingResult bindingResult,
+                         @RequestParam(value = "attachmentFiles", required = false) List<MultipartFile> attachmentFiles,
+                         @RequestParam(value = "attachmentType", required = false) ReferralAttachmentType attachmentType,
+                         @RequestParam(value = "attachmentNote", required = false) String attachmentNote,
                          Model model,
                          RedirectAttributes redirectAttributes) {
         if (bindingResult.hasErrors()) {
@@ -94,9 +98,42 @@ public class HospitalAdminReferralController {
             return "hospitaladmin/referrals/form";
         }
 
-        redirectAttributes.addFlashAttribute("message",
+        StringBuilder message = new StringBuilder(
             "Referral " + referral.getReferenceNumber() + " created successfully.");
+        appendAttachmentUploadResults(referral.getId(), attachmentFiles, attachmentType, attachmentNote, message);
+        redirectAttributes.addFlashAttribute("message", message.toString());
         return "redirect:/hospital-admin/referrals/" + referral.getId();
+    }
+
+    private void appendAttachmentUploadResults(Long referralId,
+                                               List<MultipartFile> attachmentFiles,
+                                               ReferralAttachmentType attachmentType,
+                                               String attachmentNote,
+                                               StringBuilder message) {
+        if (attachmentFiles == null || attachmentFiles.isEmpty()) {
+            return;
+        }
+        int uploaded = 0;
+        int failed = 0;
+        for (MultipartFile file : attachmentFiles) {
+            if (file == null || file.isEmpty()) {
+                continue;
+            }
+            try {
+                attachmentService.uploadVisibleAttachment(referralId, attachmentType, attachmentNote, file);
+                uploaded++;
+            } catch (IllegalArgumentException | IllegalStateException ex) {
+                failed++;
+            }
+        }
+        if (uploaded > 0) {
+            message.append(' ').append(uploaded).append(uploaded == 1 ? " attachment" : " attachments").append(" uploaded.");
+        }
+        if (failed > 0) {
+            message.append(' ').append(failed)
+                .append(failed == 1 ? " attachment" : " attachments")
+                .append(" could not be uploaded (check file type/size).");
+        }
     }
 
     @GetMapping("/{referralId}")
@@ -217,6 +254,7 @@ public class HospitalAdminReferralController {
         model.addAttribute("patients", referralService.findPatientsForCurrentTenant());
         model.addAttribute("hospitals", referralService.findReferralDestinations());
         model.addAttribute("priorities", ReferralPriority.values());
+        model.addAttribute("attachmentTypes", ReferralAttachmentType.values());
         model.addAttribute("pageTitle", "Create Referral");
         model.addAttribute("formSubtitle", "Submit a new referral from your hospital to another hospital in the platform.");
         model.addAttribute("sourceReferral", null);
@@ -228,6 +266,7 @@ public class HospitalAdminReferralController {
         model.addAttribute("referralForm", form);
         model.addAttribute("hospitals", referralService.findReferralDestinations());
         model.addAttribute("priorities", ReferralPriority.values());
+        model.addAttribute("attachmentTypes", ReferralAttachmentType.values());
         model.addAttribute("pageTitle", "Forward Referral");
         model.addAttribute("formSubtitle", "Create the next referral in this patient's journey while preserving cross-hospital tracking.");
         model.addAttribute("sourceReferral", sourceReferral);

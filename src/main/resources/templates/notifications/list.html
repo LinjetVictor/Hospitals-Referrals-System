@@ -27,8 +27,6 @@
         <div>
             <span class="eyebrow">Notifications</span>
             <h1>Inbox</h1>
-            <p>Recent system alerts about referral activity, routing, documents, and status changes.</p>
-            <p><a th:href="${workspaceHome}" th:text="${'Back to ' + workspaceLabel}">Back to dashboard</a></p>
         </div>
         <form th:action="@{/notifications/read-all}" method="post" class="inline-form">
             <button type="submit" class="secondary-button">Mark all read</button>

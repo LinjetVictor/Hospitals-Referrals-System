@@ -1,5 +1,6 @@
 package com.example.referrals.web;
 
+import com.example.referrals.hospital.Hospital;
 import com.example.referrals.superadmin.form.HospitalForm;
 import com.example.referrals.superadmin.service.SuperAdminHospitalService;
 import jakarta.validation.Valid;
@@ -31,36 +32,12 @@ public class HospitalController {
         return "superadmin/hospitals/list";
     }
 
-    @GetMapping("/new")
-    public String createForm(Model model) {
-        model.addAttribute("hospitalForm", new HospitalForm());
-        model.addAttribute("pageTitle", "Add Hospital");
-        model.addAttribute("formAction", "/super-admin/hospitals");
-        return "superadmin/hospitals/form";
-    }
-
-    @PostMapping
-    public String create(@Valid @ModelAttribute("hospitalForm") HospitalForm hospitalForm,
-                         BindingResult bindingResult,
-                         Model model,
-                         RedirectAttributes redirectAttributes) {
-        if (bindingResult.hasErrors()) {
-            model.addAttribute("pageTitle", "Add Hospital");
-            model.addAttribute("formAction", "/super-admin/hospitals");
-            return "superadmin/hospitals/form";
-        }
-
-        try {
-            hospitalService.create(hospitalForm);
-        } catch (IllegalArgumentException ex) {
-            bindingResult.reject("hospital", ex.getMessage());
-            model.addAttribute("pageTitle", "Add Hospital");
-            model.addAttribute("formAction", "/super-admin/hospitals");
-            return "superadmin/hospitals/form";
-        }
-
-        redirectAttributes.addFlashAttribute("message", "Hospital created successfully.");
-        return "redirect:/super-admin/hospitals";
+    @GetMapping("/{hospitalId}")
+    public String view(@PathVariable Long hospitalId, Model model) {
+        Hospital hospitalToView = hospitalService.findById(hospitalId);
+        model.addAttribute("hospital", hospitalToView);
+        model.addAttribute("registrationAdmin", hospitalService.findRegistrationAdmin(hospitalToView));
+        return "superadmin/hospitals/view";
     }
 
     @GetMapping("/{hospitalId}/edit")
@@ -101,6 +78,28 @@ public class HospitalController {
         try {
             hospitalService.delete(hospitalId);
             redirectAttributes.addFlashAttribute("message", "Hospital deleted successfully.");
+        } catch (IllegalArgumentException ex) {
+            redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
+        }
+        return "redirect:/super-admin/hospitals";
+    }
+
+    @PostMapping("/{hospitalId}/approve")
+    public String approve(@PathVariable Long hospitalId, RedirectAttributes redirectAttributes) {
+        try {
+            hospitalService.approveRegistration(hospitalId);
+            redirectAttributes.addFlashAttribute("message", "Hospital registration approved. The hospital administrator can now sign in.");
+        } catch (IllegalArgumentException ex) {
+            redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
+        }
+        return "redirect:/super-admin/hospitals";
+    }
+
+    @PostMapping("/{hospitalId}/reject")
+    public String reject(@PathVariable Long hospitalId, RedirectAttributes redirectAttributes) {
+        try {
+            hospitalService.rejectRegistration(hospitalId);
+            redirectAttributes.addFlashAttribute("message", "Hospital registration rejected.");
         } catch (IllegalArgumentException ex) {
             redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
         }

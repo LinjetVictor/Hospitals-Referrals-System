@@ -12,4 +12,4 @@ set attachment_type = 'OTHER'
 where attachment_type is null;
 
 alter table referral_attachments
-    modify column attachment_type varchar(40) not null;
+    alter column attachment_type set not null;
