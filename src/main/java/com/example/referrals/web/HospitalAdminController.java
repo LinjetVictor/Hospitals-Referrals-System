@@ -31,33 +31,12 @@ public class HospitalAdminController {
         return "superadmin/admins/list";
     }
 
-    @GetMapping("/new")
-    public String createForm(Model model) {
-        populateForm(model, new HospitalAdminForm(), "Add Hospital Admin", "/super-admin/admins");
-        return "superadmin/admins/form";
-    }
-
-    @PostMapping
-    public String create(@Valid @ModelAttribute("hospitalAdminForm") HospitalAdminForm hospitalAdminForm,
-                         BindingResult bindingResult,
-                         Model model,
-                         RedirectAttributes redirectAttributes) {
-        if (bindingResult.hasErrors()) {
-            populateForm(model, hospitalAdminForm, "Add Hospital Admin", "/super-admin/admins");
-            return "superadmin/admins/form";
-        }
-
-        try {
-            userService.createHospitalAdmin(hospitalAdminForm);
-        } catch (IllegalArgumentException ex) {
-            bindingResult.reject("admin", ex.getMessage());
-            populateForm(model, hospitalAdminForm, "Add Hospital Admin", "/super-admin/admins");
-            return "superadmin/admins/form";
-        }
-
-        redirectAttributes.addFlashAttribute("message", "Hospital admin created successfully.");
-        return "redirect:/super-admin/admins";
-    }
+    // Note: super admins can no longer create hospital admin accounts directly.
+    // The hospital admin created during hospital self-registration (the
+    // hospital's "registration admin") is the only account that can add
+    // further hospital admins for that hospital, from the hospital admin
+    // workspace's Users page. Super admins retain oversight (view/edit/
+    // disable/delete) of existing hospital admin accounts below.
 
     @GetMapping("/{userId}/edit")
     public String editForm(@PathVariable Long userId, Model model) {

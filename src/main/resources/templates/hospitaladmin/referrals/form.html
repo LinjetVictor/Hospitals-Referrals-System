@@ -12,7 +12,7 @@
         </div>
     </section>
 
-    <form th:action="${formAction}" th:object="${referralForm}" method="post" class="card stacked-form">
+    <form th:action="${formAction}" th:object="${referralForm}" method="post" enctype="multipart/form-data" class="card stacked-form">
         <div th:if="${#fields.hasGlobalErrors()}" class="alert alert-error" th:each="err : ${#fields.globalErrors()}" th:text="${err}"></div>
         <input type="hidden" th:field="*{sourceReferralId}">
 
@@ -73,6 +73,30 @@
             <input type="text" th:field="*{receivingDepartment}" placeholder="Cardiology">
             <small class="field-error" th:errors="*{receivingDepartment}"></small>
         </label>
+
+        <div class="card info-card">
+            <strong>Attachments (optional)</strong>
+            <p>Attach patient reports or supporting documents, such as referral letters, lab results, imaging, or discharge summaries.</p>
+
+            <label>
+                Files
+                <input type="file" name="attachmentFiles" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+            </label>
+
+            <label>
+                Document type
+                <select name="attachmentType">
+                    <option th:each="attachmentType : ${attachmentTypes}" th:value="${attachmentType}" th:text="${attachmentType.displayName}"></option>
+                </select>
+            </label>
+
+            <label>
+                Note
+                <textarea name="attachmentNote" rows="2" placeholder="Optional note applied to the uploaded files"></textarea>
+            </label>
+
+            <small class="helper-text">Allowed formats: PDF, JPG, PNG, DOC, DOCX. Maximum size: 10 MB per file. You can add more attachments later from the referral detail page.</small>
+        </div>
 
         <div class="form-actions">
             <a class="secondary-button" th:href="@{/hospital-admin/referrals}">Cancel</a>

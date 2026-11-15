@@ -1,9 +1,11 @@
 package com.example.referrals.superadmin.service;
 
 import com.example.referrals.hospital.Hospital;
+import com.example.referrals.hospital.HospitalRegistrationStatus;
 import com.example.referrals.hospital.HospitalRepository;
 import com.example.referrals.superadmin.form.HospitalForm;
 import com.example.referrals.user.UserRepository;
+import com.example.referrals.user.AppUser;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +43,20 @@ public class SuperAdminHospitalService {
     }
 
     @Transactional(readOnly = true)
+    public Hospital findById(Long hospitalId) {
+        return hospitalRepository.findById(hospitalId)
+            .orElseThrow(() -> new EntityNotFoundException("Hospital not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public AppUser findRegistrationAdmin(Hospital hospital) {
+        if (hospital.getRegistrationAdminId() == null) {
+            return null;
+        }
+        return userRepository.findById(hospital.getRegistrationAdminId()).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
     public HospitalForm buildForm(Long hospitalId) {
         Hospital hospital = hospitalRepository.findById(hospitalId)
             .orElseThrow(() -> new EntityNotFoundException("Hospital not found"));
@@ -54,11 +70,33 @@ public class SuperAdminHospitalService {
         return form;
     }
 
-    public void create(HospitalForm form) {
-        validateHospital(form, null);
-        Hospital hospital = new Hospital();
-        apply(form, hospital);
-        hospitalRepository.save(hospital);
+    public void approveRegistration(Long hospitalId) {
+        Hospital hospital = hospitalRepository.findById(hospitalId)
+            .orElseThrow(() -> new EntityNotFoundException("Hospital not found"));
+        if (hospital.getRegistrationStatus() != HospitalRegistrationStatus.PENDING) {
+            throw new IllegalArgumentException("Only pending hospital registrations can be approved.");
+        }
+        if (hospital.getRegistrationAdminId() == null) {
+            throw new IllegalArgumentException("This registration does not have an administrator account.");
+        }
+        AppUser registrationAdmin = userRepository.findById(hospital.getRegistrationAdminId())
+            .orElseThrow(() -> new IllegalArgumentException("The registration administrator account no longer exists."));
+        hospital.setRegistrationStatus(HospitalRegistrationStatus.APPROVED);
+        hospital.setEnabled(true);
+        registrationAdmin.setEnabled(true);
+    }
+
+    public void rejectRegistration(Long hospitalId) {
+        Hospital hospital = hospitalRepository.findById(hospitalId)
+            .orElseThrow(() -> new EntityNotFoundException("Hospital not found"));
+        if (hospital.getRegistrationStatus() != HospitalRegistrationStatus.PENDING) {
+            throw new IllegalArgumentException("Only pending hospital registrations can be rejected.");
+        }
+        hospital.setRegistrationStatus(HospitalRegistrationStatus.REJECTED);
+        hospital.setEnabled(false);
+        if (hospital.getRegistrationAdminId() != null) {
+            userRepository.findById(hospital.getRegistrationAdminId()).ifPresent(admin -> admin.setEnabled(false));
+        }
     }
 
     public void update(Long hospitalId, HospitalForm form) {

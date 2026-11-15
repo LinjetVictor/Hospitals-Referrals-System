@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Hospital Registration')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: navbar('hospitals')}"></header>
+<main class="page-shell narrow-shell">
+    <section class="page-header">
+        <div>
+            <span class="eyebrow">Tenant Management</span>
+            <h1 th:text="${hospital.name}">Hospital</h1>
+            <p>Review the registration details below before approving or rejecting this hospital.</p>
+        </div>
+        <span class="status-pill"
+              th:classappend="${hospital.registrationStatus.name() == 'APPROVED' ? ' status-active' : (hospital.registrationStatus.name() == 'PENDING' ? ' status-pending' : ' status-inactive')}"
+              th:text="${#strings.capitalize(#strings.toLowerCase(hospital.registrationStatus.name()))}">Pending</span>
+    </section>
+
+    <div th:if="${message}" class="alert alert-success" th:text="${message}"></div>
+    <div th:if="${errorMessage}" class="alert alert-error" th:text="${errorMessage}"></div>
+
+    <section class="card stacked-form">
+        <h2>Hospital details</h2>
+
+        <label>
+            Hospital name
+            <input type="text" th:value="${hospital.name}" disabled>
+        </label>
+
+        <label>
+            Hospital code
+            <input type="text" th:value="${hospital.code}" disabled>
+        </label>
+
+        <label>
+            Contact email
+            <input type="text" th:value="${hospital.contactEmail ?: 'Not provided'}" disabled>
+        </label>
+
+        <label>
+            Contact phone
+            <input type="text" th:value="${hospital.contactPhone ?: 'Not provided'}" disabled>
+        </label>
+
+        <label>
+            Address
+            <textarea rows="3" disabled th:text="${hospital.address ?: 'Not provided'}"></textarea>
+        </label>
+
+        <label>
+            Submitted on
+            <input type="text" th:value="${#temporals.format(hospital.createdAt, 'yyyy-MM-dd HH:mm')}" disabled>
+        </label>
+    </section>
+
+    <section class="card stacked-form">
+        <h2>Hospital administrator</h2>
+        <p class="muted-text">This is the account created during self-registration. Once approved, this administrator is the only one who can add further hospital admin accounts for this hospital.</p>
+
+        <div th:if="${registrationAdmin != null}">
+            <label>
+                Name
+                <input type="text" th:value="${registrationAdmin.fullName}" disabled>
+            </label>
+
+            <label>
+                Email
+                <input type="text" th:value="${registrationAdmin.email}" disabled>
+            </label>
+
+            <label>
+                Account status
+                <input type="text" th:value="${registrationAdmin.enabled ? 'Enabled' : 'Disabled (pending approval)'}" disabled>
+            </label>
+        </div>
+
+        <p th:if="${registrationAdmin == null}" class="empty-state">No administrator account is linked to this registration.</p>
+    </section>
+
+    <section class="card">
+        <div class="form-actions">
+            <a class="secondary-button" th:href="@{/super-admin/hospitals}">Back to hospitals</a>
+            <form th:if="${hospital.registrationStatus.name() == 'PENDING'}" th:action="@{|/super-admin/hospitals/${hospital.id}/reject|}" method="post" class="inline-form">
+                <button type="submit" class="secondary-button danger-link" onclick="return confirm('Reject this hospital registration?')">Reject</button>
+            </form>
+            <form th:if="${hospital.registrationStatus.name() == 'PENDING'}" th:action="@{|/super-admin/hospitals/${hospital.id}/approve|}" method="post" class="inline-form">
+                <button type="submit" class="primary-button" onclick="return confirm('Approve this hospital registration?')">Approve</button>
+            </form>
+        </div>
+    </section>
+</main>
+</body>
+</html>

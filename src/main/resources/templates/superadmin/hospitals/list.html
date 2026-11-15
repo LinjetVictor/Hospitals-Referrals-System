@@ -9,7 +9,7 @@
             <span class="eyebrow">Tenants</span>
             <h1>Hospitals</h1>
         </div>
-        <a class="primary-button" th:href="@{/super-admin/hospitals/new}">Add hospital</a>
+        <span class="muted-text">Hospitals join through self-registration and require approval.</span>
     </section>
 
     <div th:if="${message}" class="alert alert-success" th:text="${message}"></div>
@@ -35,13 +35,14 @@
                 <th>Name</th>
                 <th>Code</th>
                 <th>Contact</th>
+                <th>Registration</th>
                 <th>Status</th>
                 <th>Actions</th>
             </tr>
             </thead>
             <tbody>
             <tr th:if="${#lists.isEmpty(hospitals)}">
-                <td colspan="5" class="empty-state">No hospitals have been added yet.</td>
+                <td colspan="6" class="empty-state">No hospital registrations yet.</td>
             </tr>
             <tr th:each="hospital : ${hospitals}">
                 <td th:text="${hospital.name}">Hospital</td>
@@ -51,11 +52,23 @@
                     <small th:text="${hospital.contactPhone ?: 'No phone'}">No phone</small>
                 </td>
                 <td>
+                    <span class="status-pill"
+                          th:classappend="${hospital.registrationStatus.name() == 'APPROVED' ? ' status-active' : (hospital.registrationStatus.name() == 'PENDING' ? ' status-pending' : ' status-inactive')}"
+                          th:text="${#strings.capitalize(#strings.toLowerCase(hospital.registrationStatus.name()))}">Approved</span>
+                </td>
+                <td>
                     <span class="status-pill" th:classappend="${hospital.enabled ? ' status-active' : ' status-inactive'}"
                           th:text="${hospital.enabled ? 'Enabled' : 'Disabled'}">Enabled</span>
                 </td>
                 <td class="actions">
-                    <a th:href="@{|/super-admin/hospitals/${hospital.id}/edit|}">Edit</a>
+                    <a th:if="${hospital.registrationStatus.name() == 'PENDING'}" th:href="@{|/super-admin/hospitals/${hospital.id}|}">View</a>
+                    <form th:if="${hospital.registrationStatus.name() == 'PENDING'}" th:action="@{|/super-admin/hospitals/${hospital.id}/approve|}" method="post" class="inline-form">
+                        <button type="submit" class="link-button" onclick="return confirm('Approve this hospital registration?')">Approve</button>
+                    </form>
+                    <form th:if="${hospital.registrationStatus.name() == 'PENDING'}" th:action="@{|/super-admin/hospitals/${hospital.id}/reject|}" method="post" class="inline-form">
+                        <button type="submit" class="link-button danger-link" onclick="return confirm('Reject this hospital registration?')">Reject</button>
+                    </form>
+                    <a th:if="${hospital.registrationStatus.name() == 'APPROVED'}" th:href="@{|/super-admin/hospitals/${hospital.id}/edit|}">Edit</a>
                     <form th:action="@{|/super-admin/hospitals/${hospital.id}/delete|}" method="post" class="inline-form">
                         <button type="submit" class="link-button danger-link"
                                 onclick="return confirm('Delete this hospital? This only works when no users are attached.')">Delete</button>

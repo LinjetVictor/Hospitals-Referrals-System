@@ -5,6 +5,7 @@ import com.example.referrals.directory.DepartmentRepository;
 import com.example.referrals.directory.Doctor;
 import com.example.referrals.directory.DoctorRepository;
 import com.example.referrals.hospital.Hospital;
+import com.example.referrals.hospital.HospitalRegistrationStatus;
 import com.example.referrals.hospital.HospitalRepository;
 import com.example.referrals.patient.Gender;
 import com.example.referrals.patient.Patient;
@@ -44,6 +45,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -618,9 +620,145 @@ class HospitalAdminRoutesIntegrationTests {
             .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("victor@alpha.test"))));
     }
 
+    @Test
+    void hospitalCanRegisterAndWaitForSuperAdminApproval() throws Exception {
+        mockMvc.perform(post("/hospital-registration")
+                .with(csrf())
+                .param("hospitalName", "Registration Hospital")
+                .param("hospitalCode", "REG")
+                .param("contactEmail", "contact@registration.test")
+                .param("contactPhone", "+254700000001")
+                .param("address", "Nairobi")
+                .param("adminFirstName", "Regina")
+                .param("adminLastName", "Admin")
+                .param("adminEmail", "admin@registration.test")
+                .param("password", "SecurePass123"))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrl("/login"))
+            .andExpect(flash().attributeExists("message"));
+
+        Hospital registered = hospitalRepository.findAllByOrderByNameAsc().stream()
+            .filter(candidate -> "REG".equals(candidate.getCode()))
+            .findFirst()
+            .orElseThrow();
+        AppUser registrationAdmin = userRepository.findByEmailIgnoreCase("admin@registration.test").orElseThrow();
+
+        assertEquals(HospitalRegistrationStatus.PENDING, registered.getRegistrationStatus());
+        assertFalse(registered.isEnabled());
+        assertFalse(registrationAdmin.isEnabled());
+        assertEquals(registrationAdmin.getId(), registered.getRegistrationAdminId());
+    }
+
+    @Test
+    void superAdminApprovalActivatesRegisteredHospitalAndAdmin() throws Exception {
+        Hospital registered = new Hospital();
+        registered.setName("Pending Hospital");
+        registered.setCode("PENDING");
+        registered.setEnabled(false);
+        registered.setRegistrationStatus(HospitalRegistrationStatus.PENDING);
+        registered = hospitalRepository.save(registered);
+
+        AppUser registrationAdmin = new AppUser();
+        registrationAdmin.setFirstName("Pending");
+        registrationAdmin.setLastName("Admin");
+        registrationAdmin.setEmail("pending@hospital.test");
+        registrationAdmin.setPasswordHash("hash");
+        registrationAdmin.setHospital(registered);
+        registrationAdmin.setEnabled(false);
+        registrationAdmin.setRoles(java.util.Set.of(com.example.referrals.common.model.RoleName.HOSPITAL_ADMIN));
+        registrationAdmin = userRepository.save(registrationAdmin);
+        registered.setRegistrationAdminId(registrationAdmin.getId());
+        hospitalRepository.save(registered);
+
+        mockMvc.perform(post("/super-admin/hospitals/" + registered.getId() + "/approve")
+                .with(superAdmin())
+                .with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrl("/super-admin/hospitals"));
+
+        Hospital approved = hospitalRepository.findById(registered.getId()).orElseThrow();
+        AppUser approvedAdmin = userRepository.findById(registrationAdmin.getId()).orElseThrow();
+        assertEquals(HospitalRegistrationStatus.APPROVED, approved.getRegistrationStatus());
+        assertTrue(approved.isEnabled());
+        assertTrue(approvedAdmin.isEnabled());
+    }
+
+    @Test
+    void nonRegistrationHospitalAdminCannotCreateAnotherHospitalAdmin() throws Exception {
+        // hospital.getRegistrationAdminId() is null in setUp(), so the
+        // hospitalAdmin() principal (userId 100) is NOT the registration admin.
+        mockMvc.perform(post("/hospital-admin/users")
+                .with(hospitalAdmin())
+                .with(csrf())
+                .param("firstName", "Sneaky")
+                .param("lastName", "Admin")
+                .param("email", "sneaky-admin@alpha.test")
+                .param("role", "HOSPITAL_ADMIN")
+                .param("password", "SecurePass123"))
+            .andExpect(status().isOk())
+            .andExpect(view().name("hospitaladmin/users/form"));
+
+        assertTrue(userRepository.findByEmailIgnoreCase("sneaky-admin@alpha.test").isEmpty());
+    }
+
+    @Test
+    void nonRegistrationHospitalAdminCannotSeeHospitalAdminRoleAsAssignable() throws Exception {
+        mockMvc.perform(get("/hospital-admin/users/new").with(hospitalAdmin()))
+            .andExpect(status().isOk())
+            .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("HOSPITAL_ADMIN"))));
+    }
+
+    @Test
+    void registrationAdminCanCreateAnotherHospitalAdmin() throws Exception {
+        hospital.setRegistrationAdminId(100L);
+        hospitalRepository.save(hospital);
+
+        mockMvc.perform(post("/hospital-admin/users")
+                .with(hospitalAdmin())
+                .with(csrf())
+                .param("firstName", "Second")
+                .param("lastName", "Admin")
+                .param("email", "second-admin@alpha.test")
+                .param("role", "HOSPITAL_ADMIN")
+                .param("password", "SecurePass123"))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrl("/hospital-admin/users"));
+
+        AppUser created = userRepository.findByEmailIgnoreCase("second-admin@alpha.test").orElseThrow();
+        assertTrue(created.getRoles().contains(com.example.referrals.common.model.RoleName.HOSPITAL_ADMIN));
+    }
+
+    @Test
+    void registrationAdminCannotDeleteOwnAccountOrTransferAdminAway() throws Exception {
+        AppUser self = new AppUser();
+        self.setFirstName("Hospital");
+        self.setLastName("Admin");
+        self.setEmail("admin@alpha.test");
+        self.setPasswordHash("hash");
+        self.setHospital(hospital);
+        self.setEnabled(true);
+        self.setRoles(java.util.Set.of(com.example.referrals.common.model.RoleName.HOSPITAL_ADMIN));
+        self = userRepository.save(self);
+
+        hospital.setRegistrationAdminId(self.getId());
+        hospitalRepository.save(hospital);
+
+        mockMvc.perform(post("/hospital-admin/users/" + self.getId() + "/delete")
+                .with(hospitalAdmin(self.getId()))
+                .with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(flash().attributeExists("errorMessage"));
+
+        assertTrue(userRepository.findById(self.getId()).isPresent());
+    }
+
     private RequestPostProcessor hospitalAdmin() {
+        return hospitalAdmin(100L);
+    }
+
+    private RequestPostProcessor hospitalAdmin(Long userId) {
         CustomUserDetails principal = new CustomUserDetails(
-            100L,
+            userId,
             hospital.getId(),
             null,
             null,

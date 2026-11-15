@@ -34,28 +34,33 @@
 
         <label>
             Role
-            <select th:field="*{role}">
+            <select th:field="*{role}" id="roleSelect">
                 <option value="">Select role</option>
                 <option th:each="role : ${roles}" th:value="${role}" th:text="${role.name()}"></option>
             </select>
             <small class="field-error" th:errors="*{role}"></small>
+            <small class="helper-text" th:if="${#lists.contains(roles, T(com.example.referrals.common.model.RoleName).HOSPITAL_ADMIN)}">
+                Hospital Admin accounts can only be added here by the hospital administrator who registered this hospital.
+            </small>
         </label>
 
-        <label>
-            Department
-            <select th:field="*{departmentId}">
-                <option value="">No department</option>
-                <option th:each="department : ${departments}" th:value="${department.id}" th:text="${department.name}"></option>
-            </select>
-        </label>
+        <div id="clinicalFields">
+            <label>
+                Department
+                <select th:field="*{departmentId}">
+                    <option value="">No department</option>
+                    <option th:each="department : ${departments}" th:value="${department.id}" th:text="${department.name}"></option>
+                </select>
+            </label>
 
-        <label>
-            Doctor profile
-            <select th:field="*{doctorProfileId}">
-                <option value="">No doctor profile</option>
-                <option th:each="doctor : ${doctors}" th:value="${doctor.id}" th:text="${doctor.fullName}"></option>
-            </select>
-        </label>
+            <label>
+                Doctor profile
+                <select th:field="*{doctorProfileId}">
+                    <option value="">No doctor profile</option>
+                    <option th:each="doctor : ${doctors}" th:value="${doctor.id}" th:text="${doctor.fullName}"></option>
+                </select>
+            </label>
+        </div>
 
         <label>
             Password
@@ -75,5 +80,19 @@
         </div>
     </form>
 </main>
+<script th:inline="javascript">
+    (function () {
+        var roleSelect = document.getElementById('roleSelect');
+        var clinicalFields = document.getElementById('clinicalFields');
+        if (!roleSelect || !clinicalFields) {
+            return;
+        }
+        function toggleClinicalFields() {
+            clinicalFields.style.display = roleSelect.value === 'HOSPITAL_ADMIN' ? 'none' : '';
+        }
+        roleSelect.addEventListener('change', toggleClinicalFields);
+        toggleClinicalFields();
+    })();
+</script>
 </body>
 </html>

@@ -25,7 +25,7 @@ public class SecurityConfig {
                                                    PasswordEncoder passwordEncoder) throws Exception {
         http
             .authorizeHttpRequests(authorize -> authorize
-                .requestMatchers("/css/**", "/login").permitAll()
+                .requestMatchers("/css/**", "/login", "/hospital-registration/**").permitAll()
                 .requestMatchers("/super-admin/**").hasRole("SUPER_ADMIN")
                 .requestMatchers("/hospital-admin/**").hasRole("HOSPITAL_ADMIN")
                 .requestMatchers("/referral-officer/**").hasRole("REFERRAL_OFFICER")

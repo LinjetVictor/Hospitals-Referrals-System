@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Register Your Hospital')}"></head>
+<body class="login-page">
+<main class="page-shell narrow-shell registration-shell">
+    <section class="page-header">
+        <div>
+            <span class="eyebrow">Hospital enrolment</span>
+            <h1>Register your hospital</h1>
+            <p>Your application will be reviewed by the platform administrator before access is enabled.</p>
+        </div>
+    </section>
+
+    <form th:action="@{/hospital-registration}" th:object="${registrationForm}" method="post" class="card stacked-form">
+        <div th:if="${#fields.hasGlobalErrors()}" class="alert alert-error" th:each="err : ${#fields.globalErrors()}" th:text="${err}"></div>
+
+        <h2>Hospital details</h2>
+        <label>
+            Hospital name
+            <input type="text" th:field="*{hospitalName}" placeholder="Riverdale General Hospital">
+            <small class="field-error" th:errors="*{hospitalName}"></small>
+        </label>
+        <label>
+            Hospital code
+            <input type="text" th:field="*{hospitalCode}" placeholder="RGH">
+            <small class="field-error" th:errors="*{hospitalCode}"></small>
+        </label>
+        <label>
+            Contact email
+            <input type="email" th:field="*{contactEmail}" placeholder="contact@hospital.org">
+            <small class="field-error" th:errors="*{contactEmail}"></small>
+        </label>
+        <label>
+            Contact phone
+            <input type="text" th:field="*{contactPhone}" placeholder="+254700000000">
+            <small class="field-error" th:errors="*{contactPhone}"></small>
+        </label>
+        <label>
+            Address
+            <textarea th:field="*{address}" rows="3" placeholder="Physical address"></textarea>
+            <small class="field-error" th:errors="*{address}"></small>
+        </label>
+
+        <h2>Initial administrator account</h2>
+        <label>
+            First name
+            <input type="text" th:field="*{adminFirstName}" autocomplete="given-name">
+            <small class="field-error" th:errors="*{adminFirstName}"></small>
+        </label>
+        <label>
+            Last name
+            <input type="text" th:field="*{adminLastName}" autocomplete="family-name">
+            <small class="field-error" th:errors="*{adminLastName}"></small>
+        </label>
+        <label>
+            Work email
+            <input type="email" th:field="*{adminEmail}" placeholder="admin@hospital.org" autocomplete="email">
+            <small class="field-error" th:errors="*{adminEmail}"></small>
+        </label>
+        <label>
+            Password
+            <input type="password" th:field="*{password}" autocomplete="new-password">
+            <small class="field-error" th:errors="*{password}"></small>
+        </label>
+
+        <div class="form-actions">
+            <a class="secondary-button" th:href="@{/login}">Back to sign in</a>
+            <button type="submit" class="primary-button">Submit registration</button>
+        </div>
+    </form>
+</main>
+</body>
+</html>

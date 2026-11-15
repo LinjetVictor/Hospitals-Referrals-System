@@ -43,8 +43,8 @@
 
         <label>
             Password
-            <input type="password" th:field="*{password}" placeholder="Required for new admins">
-            <small class="helper-text">Leave blank during edit to keep the current password.</small>
+            <input type="password" th:field="*{password}" placeholder="Leave blank to keep the current password">
+            <small class="helper-text">Leave blank to keep the current password.</small>
             <small class="field-error" th:errors="*{password}"></small>
         </label>
 

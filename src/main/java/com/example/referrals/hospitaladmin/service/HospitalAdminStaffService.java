@@ -1,6 +1,7 @@
 package com.example.referrals.hospitaladmin.service;
 
 import com.example.referrals.common.model.RoleName;
+import com.example.referrals.common.web.CurrentUserFacade;
 import com.example.referrals.directory.Department;
 import com.example.referrals.directory.DepartmentRepository;
 import com.example.referrals.directory.Doctor;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -25,7 +27,7 @@ import java.util.Set;
 @Transactional
 public class HospitalAdminStaffService {
 
-    private static final Set<RoleName> MANAGED_ROLES = Set.of(
+    private static final Set<RoleName> BASE_MANAGED_ROLES = Set.of(
         RoleName.REFERRAL_OFFICER,
         RoleName.DOCTOR,
         RoleName.VIEWER
@@ -36,31 +38,66 @@ public class HospitalAdminStaffService {
     private final DepartmentRepository departmentRepository;
     private final DoctorRepository doctorRepository;
     private final PasswordEncoder passwordEncoder;
+    private final CurrentUserFacade currentUserFacade;
 
     public HospitalAdminStaffService(UserRepository userRepository,
                                      HospitalRepository hospitalRepository,
                                      DepartmentRepository departmentRepository,
                                      DoctorRepository doctorRepository,
-                                     PasswordEncoder passwordEncoder) {
+                                     PasswordEncoder passwordEncoder,
+                                     CurrentUserFacade currentUserFacade) {
         this.userRepository = userRepository;
         this.hospitalRepository = hospitalRepository;
         this.departmentRepository = departmentRepository;
         this.doctorRepository = doctorRepository;
         this.passwordEncoder = passwordEncoder;
+        this.currentUserFacade = currentUserFacade;
+    }
+
+    /**
+     * Only the hospital administrator who originally registered the hospital
+     * (i.e. the account created during hospital registration) is allowed to
+     * add, edit, or remove other hospital admin accounts for that hospital.
+     */
+    @Transactional(readOnly = true)
+    public boolean isCurrentUserRegistrationAdmin() {
+        Long tenantId = requireTenantId();
+        Long currentUserId = currentUserFacade.requireUser().getUserId();
+        return hospitalRepository.findById(tenantId)
+            .map(Hospital::getRegistrationAdminId)
+            .map(registrationAdminId -> registrationAdminId.equals(currentUserId))
+            .orElse(false);
+    }
+
+    private Set<RoleName> managedRolesForCurrentUser() {
+        if (isCurrentUserRegistrationAdmin()) {
+            Set<RoleName> roles = EnumSet.copyOf(BASE_MANAGED_ROLES);
+            roles.add(RoleName.HOSPITAL_ADMIN);
+            return roles;
+        }
+        return BASE_MANAGED_ROLES;
     }
 
     @Transactional(readOnly = true)
     public List<AppUser> findManagedUsersForCurrentTenant() {
-        return userRepository.findAllByHospitalIdAndRoles(requireTenantId(), MANAGED_ROLES);
+        return userRepository.findAllByHospitalIdAndRoles(requireTenantId(), managedRolesForCurrentUser());
     }
 
     @Transactional(readOnly = true)
     public List<AppUser> findManagedUsersForCurrentTenant(String query, RoleName role) {
         String normalizedQuery = normalizeQuery(query);
-        return userRepository.findAllByHospitalIdAndRoles(requireTenantId(), MANAGED_ROLES).stream()
+        return userRepository.findAllByHospitalIdAndRoles(requireTenantId(), managedRolesForCurrentUser()).stream()
             .filter(user -> role == null || role.equals(user.getPrimaryRole()))
             .filter(user -> normalizedQuery == null || matchesUser(user, normalizedQuery))
             .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<RoleName> findAssignableRolesForCurrentUser() {
+        if (isCurrentUserRegistrationAdmin()) {
+            return List.of(RoleName.HOSPITAL_ADMIN, RoleName.REFERRAL_OFFICER, RoleName.DOCTOR, RoleName.VIEWER);
+        }
+        return List.of(RoleName.REFERRAL_OFFICER, RoleName.DOCTOR, RoleName.VIEWER);
     }
 
     @Transactional(readOnly = true)
@@ -68,6 +105,10 @@ public class HospitalAdminStaffService {
         AppUser user = userRepository.findById(userId)
             .filter(existing -> existing.getHospital() != null && existing.getHospital().getId().equals(requireTenantId()))
             .orElseThrow(() -> new EntityNotFoundException("User not found"));
+
+        if (user.getPrimaryRole() == RoleName.HOSPITAL_ADMIN && !isCurrentUserRegistrationAdmin()) {
+            throw new EntityNotFoundException("User not found");
+        }
 
         HospitalUserForm form = new HospitalUserForm();
         form.setFirstName(user.getFirstName());
@@ -104,18 +145,42 @@ public class HospitalAdminStaffService {
         AppUser user = userRepository.findById(userId)
             .filter(existing -> existing.getHospital() != null && existing.getHospital().getId().equals(tenantId))
             .orElseThrow(() -> new EntityNotFoundException("User not found"));
+
+        if (user.getPrimaryRole() == RoleName.HOSPITAL_ADMIN && !isCurrentUserRegistrationAdmin()) {
+            throw new IllegalArgumentException("Only the hospital administrator who registered this hospital can manage hospital admin accounts.");
+        }
+
         apply(form, user, tenantId, false);
     }
 
     public void delete(Long userId) {
+        Long tenantId = requireTenantId();
         AppUser user = userRepository.findById(userId)
-            .filter(existing -> existing.getHospital() != null && existing.getHospital().getId().equals(requireTenantId()))
+            .filter(existing -> existing.getHospital() != null && existing.getHospital().getId().equals(tenantId))
             .orElseThrow(() -> new EntityNotFoundException("User not found"));
+
+        if (user.getPrimaryRole() == RoleName.HOSPITAL_ADMIN) {
+            if (!isCurrentUserRegistrationAdmin()) {
+                throw new IllegalArgumentException("Only the hospital administrator who registered this hospital can remove hospital admin accounts.");
+            }
+            if (user.getId().equals(currentUserFacade.requireUser().getUserId())) {
+                throw new IllegalArgumentException("You cannot delete your own hospital admin account.");
+            }
+            Hospital hospital = hospitalRepository.findById(tenantId)
+                .orElseThrow(() -> new EntityNotFoundException("Hospital not found"));
+            if (user.getId().equals(hospital.getRegistrationAdminId())) {
+                throw new IllegalArgumentException("The hospital admin who registered this hospital cannot be removed.");
+            }
+        }
+
         userRepository.delete(user);
     }
 
     private void validateForm(HospitalUserForm form, Long tenantId, Long userId, boolean creating) {
-        if (!MANAGED_ROLES.contains(form.getRole())) {
+        if (!managedRolesForCurrentUser().contains(form.getRole())) {
+            if (form.getRole() == RoleName.HOSPITAL_ADMIN) {
+                throw new IllegalArgumentException("Only the hospital administrator who registered this hospital can add other hospital admins.");
+            }
             throw new IllegalArgumentException("This role cannot be managed from the hospital workspace.");
         }
 
