@@ -4,20 +4,18 @@ services:
     runtime: docker
     plan: starter
     region: frankfurt
-    dockerfilePath: ./mysql-render/Dockerfile
+    dockerfilePath: ./postgres-render/Dockerfile
     autoDeployTrigger: commit
     envVars:
-      - key: MYSQL_DATABASE
+      - key: POSTGRES_DB
         value: hospital_referrals
-      - key: MYSQL_USER
+      - key: POSTGRES_USER
         value: referrals
-      - key: MYSQL_PASSWORD
-        sync: false
-      - key: MYSQL_ROOT_PASSWORD
+      - key: POSTGRES_PASSWORD
         sync: false
     disk:
-      name: mysql-data
-      mountPath: /var/lib/mysql
+      name: postgres-data
+      mountPath: /var/lib/postgresql/data
       sizeGB: 10
 
   - name: hospital-referrals-app
@@ -43,17 +41,17 @@ services:
         fromService:
           name: hospital-referrals-db
           type: pserv
-          envVarKey: MYSQL_DATABASE
+          envVarKey: POSTGRES_DB
       - key: DB_USERNAME
         fromService:
           name: hospital-referrals-db
           type: pserv
-          envVarKey: MYSQL_USER
+          envVarKey: POSTGRES_USER
       - key: DB_PASSWORD
         fromService:
           name: hospital-referrals-db
           type: pserv
-          envVarKey: MYSQL_PASSWORD
+          envVarKey: POSTGRES_PASSWORD
       - key: APP_BOOTSTRAP_SUPER_ADMIN_EMAIL
         value: superadmin@referrals.local
       - key: APP_BOOTSTRAP_SUPER_ADMIN_PASSWORD

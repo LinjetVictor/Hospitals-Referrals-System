@@ -9,7 +9,7 @@ set journey_code = concat('JRNY-LEGACY-', id)
 where journey_code is null;
 
 alter table referrals
-    modify column journey_code varchar(60) not null;
+    alter column journey_code set not null;
 
 alter table referrals
     add constraint fk_referrals_parent_referral foreign key (parent_referral_id) references referrals (id);
